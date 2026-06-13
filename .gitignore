@@ -1,16 +1,21 @@
-﻿## Ignore Visual Studio Temporary Files
+﻿## Ignore Visual Studio & VS Code Temporary Files
 .vs/
+.vscode/
 Debug/
 Release/
 x64/
+build/
+out/
+
+## Ignore Build Artifacts
+*.exe
+*.obj
+*.o
+*.ilk
+*.pdb
+*.log
+
+## Ignore User-specific files
 *.user
 *.aps
 *.suo
-*.ilk
-*.pdb
-*.obj
-*.iobj
-*.ipdb
-*.log
-*.tlog
-*.recipe
