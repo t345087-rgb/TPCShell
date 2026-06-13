@@ -1,0 +1,16 @@
+﻿## Ignore Visual Studio Temporary Files
+.vs/
+Debug/
+Release/
+x64/
+*.user
+*.aps
+*.suo
+*.ilk
+*.pdb
+*.obj
+*.iobj
+*.ipdb
+*.log
+*.tlog
+*.recipe
