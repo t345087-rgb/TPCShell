@@ -19,6 +19,12 @@ bool isHandleOwnedByAnotherRecord(HANDLE hProcess, std::size_t excludedIndex) {
 
     return false;
 }
+
+void removeBackgroundProcess(
+    std::vector<BackgroundProcess>::iterator process) {
+    CloseHandle(process->hProcess);
+    backgroundProcesses.erase(process);
+}
 }
 
 void addBackgroundProcess(DWORD pid, HANDLE hProcess, const char* cmdName) {
@@ -93,7 +99,51 @@ void listBackgroundProcesses() {
 }
 
 void killProcess(DWORD pid) {
-    // CHÍNH VIẾT CODE TERMINATEPROCESS
+    for (auto process = backgroundProcesses.begin();
+         process != backgroundProcesses.end(); ++process) {
+        if (process->pid != pid) {
+            continue;
+        }
+
+        const DWORD waitResult = WaitForSingleObject(process->hProcess, 0);
+
+        if (waitResult == WAIT_OBJECT_0) {
+            removeBackgroundProcess(process);
+            std::cout << "[TPCShell] Tien trinh PID " << pid
+                      << " da ket thuc truoc do va da duoc xoa khoi danh sach.\n";
+            return;
+        }
+
+        if (waitResult == WAIT_FAILED) {
+            const DWORD errorCode = GetLastError();
+            std::cerr << "[TPCShell] Khong the kiem tra tien trinh PID "
+                      << pid << ". Ma loi Windows: " << errorCode << '\n';
+            return;
+        }
+
+        if (!TerminateProcess(process->hProcess, 1)) {
+            const DWORD errorCode = GetLastError();
+            std::cerr << "[TPCShell] Khong the ket thuc tien trinh PID "
+                      << pid << ". Ma loi Windows: " << errorCode << '\n';
+            return;
+        }
+
+        const DWORD completionWait =
+            WaitForSingleObject(process->hProcess, INFINITE);
+        if (completionWait == WAIT_FAILED) {
+            const DWORD errorCode = GetLastError();
+            std::cerr << "[TPCShell] Canh bao: khong the cho tien trinh PID "
+                      << pid << " ket thuc. Ma loi Windows: "
+                      << errorCode << '\n';
+        }
+
+        removeBackgroundProcess(process);
+        std::cout << "[TPCShell] Da ket thuc tien trinh PID " << pid << ".\n";
+        return;
+    }
+
+    std::cerr << "[TPCShell] Khong tim thay tien trinh PID " << pid
+              << " trong danh sach tien trinh ngam duoc quan ly.\n";
 }
 
 void stopProcess(DWORD pid) {
