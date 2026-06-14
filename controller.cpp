@@ -1,4 +1,5 @@
 ﻿#include "controller.h"
+#include <iomanip>
 #include <iostream>
 #include <vector>
 
@@ -51,7 +52,44 @@ void addBackgroundProcess(DWORD pid, HANDLE hProcess, const char* cmdName) {
 }
 
 void listBackgroundProcesses() {
-    // CHÍNH VIẾT CODE IN DANH SÁCH
+    for (auto process = backgroundProcesses.begin();
+         process != backgroundProcesses.end();) {
+        const DWORD waitResult = WaitForSingleObject(process->hProcess, 0);
+
+        if (waitResult == WAIT_OBJECT_0) {
+            CloseHandle(process->hProcess);
+            process = backgroundProcesses.erase(process);
+            continue;
+        }
+
+        if (waitResult == WAIT_FAILED) {
+            const DWORD errorCode = GetLastError();
+            std::cerr << "[TPCShell] Khong the kiem tra tien trinh PID "
+                      << process->pid << ". Ma loi Windows: "
+                      << errorCode << '\n';
+        }
+
+        ++process;
+    }
+
+    if (backgroundProcesses.empty()) {
+        std::cout
+            << "[TPCShell] Khong co tien trinh ngam nao dang duoc quan ly.\n";
+        return;
+    }
+
+    std::cout << std::left
+              << std::setw(12) << "PID"
+              << std::setw(24) << "NAME"
+              << "STATUS\n";
+
+    for (const BackgroundProcess& process : backgroundProcesses) {
+        std::cout << std::left
+                  << std::setw(12) << process.pid
+                  << std::setw(24) << process.cmdName
+                  << (process.isRunning ? "RUNNING" : "STOPPED")
+                  << '\n';
+    }
 }
 
 void killProcess(DWORD pid) {
