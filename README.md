@@ -2,7 +2,7 @@
 
 ## 👥 Thành viên nhóm & Phân chia công việc
 
-1. **Tuấn Anh / Tuấn (Leader)**
+1. **Tuấn (Leader)**
    - Quản lý chung dự án và điều phối tiến độ.
    - Thiết kế kiến trúc chương trình và quản lý tích hợp hệ thống.
    - Cài đặt REPL chính: quản lý vòng lặp `TPCShell>`.
