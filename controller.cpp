@@ -46,6 +46,26 @@ void rollbackSuspendedThreads(const std::vector<DWORD>& threadIds, DWORD pid) {
         CloseHandle(hThread);
     }
 }
+
+void rollbackResumedThreads(const std::vector<DWORD>& threadIds, DWORD pid) {
+    for (DWORD threadId : threadIds) {
+        HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, threadId);
+        if (hThread == NULL) {
+            std::cout << "Error: Failed to reopen thread " << threadId
+                      << " while rolling back resume for PID " << pid
+                      << ". Windows error: " << GetLastError() << std::endl;
+            continue;
+        }
+
+        if (SuspendThread(hThread) == static_cast<DWORD>(-1)) {
+            std::cout << "Error: Failed to suspend thread " << threadId
+                      << " while rolling back resume for PID " << pid
+                      << ". Windows error: " << GetLastError() << std::endl;
+        }
+
+        CloseHandle(hThread);
+    }
+}
 }
 
 void addBackgroundProcess(DWORD pid, HANDLE hProcess, const char* cmdName) {
@@ -289,7 +309,124 @@ void stopProcess(DWORD pid) {
 }
 
 void resumeProcess(DWORD pid) {
-    // CHÍNH VIẾT CODE RESUMETHREAD
+    auto processIt = backgroundProcesses.begin();
+    while (processIt != backgroundProcesses.end() && processIt->pid != pid) {
+        ++processIt;
+    }
+
+    if (processIt == backgroundProcesses.end()) {
+        std::cout << "Error: PID " << pid
+                  << " is not managed by TPCShell." << std::endl;
+        return;
+    }
+
+    DWORD waitResult = WaitForSingleObject(processIt->hProcess, 0);
+    if (waitResult == WAIT_OBJECT_0) {
+        CloseHandle(processIt->hProcess);
+        backgroundProcesses.erase(processIt);
+        std::cout << "Process PID " << pid
+                  << " has already exited and was removed from TPCShell."
+                  << std::endl;
+        return;
+    }
+
+    if (waitResult == WAIT_FAILED) {
+        std::cout << "Error: Failed to inspect PID " << pid
+                  << ". Windows error: " << GetLastError() << std::endl;
+        return;
+    }
+
+    if (waitResult != WAIT_TIMEOUT) {
+        std::cout << "Error: Unexpected wait result " << waitResult
+                  << " for PID " << pid << "." << std::endl;
+        return;
+    }
+
+    if (processIt->isRunning) {
+        std::cout << "Process PID " << pid << " is already running."
+                  << std::endl;
+        return;
+    }
+
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) {
+        std::cout << "Error: Failed to create a thread snapshot for PID "
+                  << pid << ". Windows error: " << GetLastError()
+                  << std::endl;
+        return;
+    }
+
+    THREADENTRY32 threadEntry = {};
+    threadEntry.dwSize = sizeof(threadEntry);
+    if (!Thread32First(snapshot, &threadEntry)) {
+        DWORD error = GetLastError();
+        CloseHandle(snapshot);
+        std::cout << "Error: Failed to enumerate threads for PID " << pid
+                  << ". Windows error: " << error << std::endl;
+        return;
+    }
+
+    std::vector<DWORD> resumedThreadIds;
+    bool foundThread = false;
+
+    for (;;) {
+        if (threadEntry.th32OwnerProcessID == pid) {
+            foundThread = true;
+
+            HANDLE hThread = OpenThread(
+                THREAD_SUSPEND_RESUME,
+                FALSE,
+                threadEntry.th32ThreadID
+            );
+            if (hThread == NULL) {
+                DWORD error = GetLastError();
+                CloseHandle(snapshot);
+                std::cout << "Error: Failed to open thread "
+                          << threadEntry.th32ThreadID << " for PID " << pid
+                          << ". Windows error: " << error << std::endl;
+                rollbackResumedThreads(resumedThreadIds, pid);
+                return;
+            }
+
+            if (ResumeThread(hThread) == static_cast<DWORD>(-1)) {
+                DWORD error = GetLastError();
+                CloseHandle(hThread);
+                CloseHandle(snapshot);
+                std::cout << "Error: Failed to resume thread "
+                          << threadEntry.th32ThreadID << " for PID " << pid
+                          << ". Windows error: " << error << std::endl;
+                rollbackResumedThreads(resumedThreadIds, pid);
+                return;
+            }
+
+            resumedThreadIds.push_back(threadEntry.th32ThreadID);
+            CloseHandle(hThread);
+        }
+
+        if (!Thread32Next(snapshot, &threadEntry)) {
+            DWORD error = GetLastError();
+            CloseHandle(snapshot);
+
+            if (error != ERROR_NO_MORE_FILES) {
+                std::cout << "Error: Failed while enumerating threads for PID "
+                          << pid << ". Windows error: " << error << std::endl;
+                rollbackResumedThreads(resumedThreadIds, pid);
+                return;
+            }
+
+            break;
+        }
+    }
+
+    if (!foundThread) {
+        std::cout << "Error: No threads were found for PID " << pid << "."
+                  << std::endl;
+        return;
+    }
+
+    processIt->isRunning = true;
+    std::cout << "Process PID " << pid << " resumed successfully."
+              << std::endl;
 }
 
 void setupSignalHandler() {
