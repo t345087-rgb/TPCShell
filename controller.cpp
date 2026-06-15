@@ -7,6 +7,10 @@
 namespace {
 std::vector<BackgroundProcess> backgroundProcesses;
 
+BOOL WINAPI consoleCtrlHandler(DWORD ctrlType) {
+    return ctrlType == CTRL_C_EVENT ? TRUE : FALSE;
+}
+
 bool isHandleOwnedByAnotherRecord(HANDLE hProcess, std::size_t excludedIndex) {
     if (hProcess == NULL || hProcess == INVALID_HANDLE_VALUE) {
         return false;
@@ -430,5 +434,9 @@ void resumeProcess(DWORD pid) {
 }
 
 void setupSignalHandler() {
-    // CHÍNH VIẾT CODE SETCONSOLECTRLHANDLER
+    if (!SetConsoleCtrlHandler(consoleCtrlHandler, TRUE)) {
+        const DWORD errorCode = GetLastError();
+        std::cerr << "[TPCShell] Failed to register the console control "
+                  << "handler. Windows error: " << errorCode << '\n';
+    }
 }
