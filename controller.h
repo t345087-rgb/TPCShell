@@ -11,6 +11,11 @@ struct BackgroundProcess {
     bool isRunning;
 };
 
+// process_mgr.cpp owns the original foreground process HANDLE.
+// The controller owns and closes only its internal duplicated HANDLE.
+bool setForegroundProcess(DWORD pid, HANDLE hProcess);
+void clearForegroundProcess();
+
 // Các hàm quản lý danh sách do CHÍNH phụ trách
 void addBackgroundProcess(DWORD pid, HANDLE hProcess, const char* cmdName);
 void listBackgroundProcesses();
