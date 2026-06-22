@@ -25,6 +25,8 @@ void cmdHelp() {
     std::cout << "  time              - Display current time\n";
     std::cout << "  dir [path]        - List directory contents\n";
     std::cout << "  cd <path>         - Change directory\n";
+    std::cout << "  pwd               - Display current working directory\n";
+    std::cout << "  clear             - Clear the screen\n";
     std::cout << "  path              - Display PATH environment variable\n";
     std::cout << "  addpath <dir>     - Add directory to PATH\n";
     std::cout << "  delpath <dir>     - Remove directory from PATH\n\n";
@@ -138,6 +140,51 @@ void cmdCd(const std::vector<std::string>& args) {
     if (!SetCurrentDirectoryA(targetDir.c_str())) {
         std::cerr << "cd: " << targetDir << ": No such file or directory\n";
     }
+}
+
+void cmdPwd() {
+    char currentDir[MAX_PATH];
+
+    if (GetCurrentDirectoryA(MAX_PATH, currentDir)) {
+        std::cout << currentDir << "\n";
+    } else {
+        std::cerr << "pwd: failed to get current directory\n";
+    }
+}
+
+void cmdClear() {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    if (hConsole == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) {
+        return;
+    }
+
+    DWORD consoleSize = csbi.dwSize.X * csbi.dwSize.Y;
+    DWORD charsWritten;
+    COORD topLeft = {0, 0};
+
+    FillConsoleOutputCharacterA(
+        hConsole,
+        ' ',
+        consoleSize,
+        topLeft,
+        &charsWritten
+    );
+
+    FillConsoleOutputAttribute(
+        hConsole,
+        csbi.wAttributes,
+        consoleSize,
+        topLeft,
+        &charsWritten
+    );
+
+    SetConsoleCursorPosition(hConsole, topLeft);
 }
 
 void cmdPath() {
@@ -257,6 +304,8 @@ bool isBuiltinCommand(const std::string& cmd) {
            cmd == "time" ||
            cmd == "dir" ||
            cmd == "cd" ||
+           cmd == "pwd" ||
+           cmd == "clear" ||
            cmd == "path" ||
            cmd == "addpath" ||
            cmd == "delpath" ||
@@ -304,6 +353,12 @@ void executeBuiltin(const ParsedCommand& parsed) {
 
     } else if (parsed.command == "cd") {
         cmdCd(parsed.args);
+
+    } else if (parsed.command == "pwd") {
+        cmdPwd();
+
+    } else if (parsed.command == "clear") {
+        cmdClear();
 
     } else if (parsed.command == "path") {
         cmdPath();
