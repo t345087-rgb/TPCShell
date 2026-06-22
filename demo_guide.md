@@ -20,7 +20,7 @@ TPCShell.exe
 **Output:**
 ```
 ======================================
-  Chao mung den voi TPCShell (v1.0)   
+  Welcome to TPCShell (v1.0)          
 ======================================
 Type 'help' for available commands.
 
@@ -45,6 +45,8 @@ Built-in Commands:
   time              - Display current time
   dir [path]        - List directory contents
   cd <path>         - Change directory
+  pwd               - Display current working directory
+  clear             - Clear the screen
   path              - Display PATH environment variable
   addpath <dir>     - Add directory to PATH
   delpath <dir>     - Remove directory from PATH
@@ -125,16 +127,16 @@ TPCShell> notepad.exe
 Run process in background with `&`:
 ```
 TPCShell> notepad.exe &
-[TPCShell] Tiến trình chay ngam kich hoat thanh cong. PID: 1234
+[TPCShell] Background process started successfully. PID: 1234
 TPCShell> _
 ```
 
 Multiple background processes:
 ```
 TPCShell> mspaint.exe &
-[TPCShell] Tiến trình chay ngam kich hoat thanh cong. PID: 5678
+[TPCShell] Background process started successfully. PID: 5678
 TPCShell> calc.exe &
-[TPCShell] Tiến trình chay ngam kich hoat thanh cong. PID: 9012
+[TPCShell] Background process started successfully. PID: 9012
 ```
 
 ---
@@ -145,47 +147,47 @@ TPCShell> calc.exe &
 ```
 TPCShell> list
 
-Background Processes:
-  PID: 1234  |  notepad.exe  |  Running
-  PID: 5678  |  mspaint.exe   |  Running
-  PID: 9012  |  calc.exe      |  Running
+PID         NAME                    STATUS
+1234        notepad.exe             RUNNING
+5678        mspaint.exe             RUNNING
+9012        calc.exe                RUNNING
 ```
 
 ### `stop <PID>` - Pause a process
 ```
 TPCShell> stop 1234
-[TPCShell] Da tam dung tien trinh PID: 1234
+Process PID 1234 stopped successfully.
 ```
 
 Verify stopped:
 ```
 TPCShell> list
 
-Background Processes:
-  PID: 1234  |  notepad.exe  |  Stopped
-  PID: 5678  |  mspaint.exe  |  Running
-  PID: 9012  |  calc.exe     |  Running
+PID         NAME                    STATUS
+1234        notepad.exe             STOPPED
+5678        mspaint.exe             RUNNING
+9012        calc.exe                RUNNING
 ```
 
 ### `resume <PID>` - Resume paused process
 ```
 TPCShell> resume 1234
-[TPCShell] Da tiep tuc tien trinh PID: 1234
+Process PID 1234 resumed successfully.
 ```
 
 ### `kill <PID>` - Terminate a process
 ```
 TPCShell> kill 1234
-[TPCShell] Da kill tien trinh PID: 1234
+[TPCShell] Terminated process PID 1234.
 ```
 
 Verify killed:
 ```
 TPCShell> list
 
-Background Processes:
-  PID: 5678  |  mspaint.exe  |  Running
-  PID: 9012  |  calc.exe     |  Running
+PID         NAME                    STATUS
+5678        mspaint.exe             RUNNING
+9012        calc.exe                RUNNING
 ```
 
 ---
@@ -201,10 +203,10 @@ mspaint.exe
 ### Run batch file:
 ```
 TPCShell> test.bat
-[TPCShell] Bat dau thuc thi file script: test.bat
+[TPCShell] Starting batch file execution: test.bat
 -> Run: calc.exe
 -> Run: mspaint.exe
-[TPCShell] Hoan thanh thuc thi file script.
+[TPCShell] Finished batch file execution.
 ```
 
 ---
@@ -223,7 +225,6 @@ Reply from ::1: time<1ms
 Press `Ctrl+C` to terminate:
 ```
 ^C
-[TPCShell] Received Ctrl+C - terminating child process
 TPCShell> _
 ```
 

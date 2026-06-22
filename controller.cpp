@@ -173,8 +173,8 @@ void listBackgroundProcesses() {
 
         if (waitResult == WAIT_FAILED) {
             const DWORD errorCode = GetLastError();
-            std::cerr << "[TPCShell] Khong the kiem tra tien trinh PID "
-                      << process->pid << ". Ma loi Windows: "
+            std::cerr << "[TPCShell] Failed to inspect process PID "
+                      << process->pid << ". Windows error: "
                       << errorCode << '\n';
         }
 
@@ -182,8 +182,7 @@ void listBackgroundProcesses() {
     }
 
     if (backgroundProcesses.empty()) {
-        std::cout
-            << "[TPCShell] Khong co tien trinh ngam nao dang duoc quan ly.\n";
+        std::cout << "[TPCShell] No managed background processes.\n";
         return;
     }
 
@@ -212,22 +211,22 @@ void killProcess(DWORD pid) {
 
         if (waitResult == WAIT_OBJECT_0) {
             removeBackgroundProcess(process);
-            std::cout << "[TPCShell] Tien trinh PID " << pid
-                      << " da ket thuc truoc do va da duoc xoa khoi danh sach.\n";
+            std::cout << "[TPCShell] Process PID " << pid
+                      << " has already exited and was removed from TPCShell.\n";
             return;
         }
 
         if (waitResult == WAIT_FAILED) {
             const DWORD errorCode = GetLastError();
-            std::cerr << "[TPCShell] Khong the kiem tra tien trinh PID "
-                      << pid << ". Ma loi Windows: " << errorCode << '\n';
+            std::cerr << "[TPCShell] Failed to inspect process PID "
+                      << pid << ". Windows error: " << errorCode << '\n';
             return;
         }
 
         if (!TerminateProcess(process->hProcess, 1)) {
             const DWORD errorCode = GetLastError();
-            std::cerr << "[TPCShell] Khong the ket thuc tien trinh PID "
-                      << pid << ". Ma loi Windows: " << errorCode << '\n';
+            std::cerr << "[TPCShell] Failed to terminate process PID "
+                      << pid << ". Windows error: " << errorCode << '\n';
             return;
         }
 
@@ -235,18 +234,18 @@ void killProcess(DWORD pid) {
             WaitForSingleObject(process->hProcess, INFINITE);
         if (completionWait == WAIT_FAILED) {
             const DWORD errorCode = GetLastError();
-            std::cerr << "[TPCShell] Canh bao: khong the cho tien trinh PID "
-                      << pid << " ket thuc. Ma loi Windows: "
+            std::cerr << "[TPCShell] Warning: failed to wait for process PID "
+                      << pid << " to exit. Windows error: "
                       << errorCode << '\n';
         }
 
         removeBackgroundProcess(process);
-        std::cout << "[TPCShell] Da ket thuc tien trinh PID " << pid << ".\n";
+        std::cout << "[TPCShell] Terminated process PID " << pid << ".\n";
         return;
     }
 
-    std::cerr << "[TPCShell] Khong tim thay tien trinh PID " << pid
-              << " trong danh sach tien trinh ngam duoc quan ly.\n";
+    std::cerr << "[TPCShell] Process PID " << pid
+              << " is not managed by TPCShell.\n";
 }
 
 void stopProcess(DWORD pid) {

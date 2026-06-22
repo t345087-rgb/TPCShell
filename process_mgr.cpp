@@ -43,7 +43,8 @@ void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
         &si,                // Thông tin cấu hình cửa sổ ban đầu
         &pi                 // Nhận thông tin handle/PID trả về từ OS
     )) {
-        std::cout << "Loi: Khong the thuc thi lenh. Ma loi Windows: " << GetLastError() << std::endl;
+        std::cout << "[TPCShell] Failed to execute command. Windows error: "
+                  << GetLastError() << std::endl;
         delete[] lpCommandLine;
         return;
     }
@@ -57,9 +58,9 @@ void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
 
         if (waitResult == WAIT_FAILED) {
             const DWORD errorCode = GetLastError();
-            std::cerr << "[TPCShell] Canh bao: khong the cho tien trinh "
+            std::cerr << "[TPCShell] Warning: failed to wait for "
                       << "foreground PID " << pi.dwProcessId
-                      << " ket thuc. Ma loi Windows: " << errorCode << '\n';
+                      << " to exit. Windows error: " << errorCode << '\n';
         }
 
         if (foregroundRegistered) {
@@ -72,7 +73,8 @@ void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
     } 
     else {
         // 2. Chế độ Background: Không chặn Shell, tiến trình chạy ngầm song song
-        std::cout << "[TPCShell] Tiến trình chay ngam kich hoat thanh cong. PID: " << pi.dwProcessId << "\n";
+        std::cout << "[TPCShell] Background process started successfully. PID: "
+                  << pi.dwProcessId << "\n";
         
         // Đẩy PID, Handle và tên lệnh sang cho Chính nạp vào danh sách quản lý
         addBackgroundProcess(pi.dwProcessId, pi.hProcess, cmdName);
@@ -89,11 +91,11 @@ void executeBatchFile(const char* filePath) {
     std::ifstream file(filePath);
     
     if (!file.is_open()) {
-        std::cout << "Loi: Khong the mo file script '" << filePath << "'\n";
+        std::cout << "[TPCShell] Failed to open script file '" << filePath << "'\n";
         return;
     }
 
-    std::cout << "[TPCShell] Bat dau thuc thi file script: " << filePath << "\n";
+    std::cout << "[TPCShell] Starting batch file execution: " << filePath << "\n";
     std::string line;
     
     // Đọc từng dòng trong file batch
@@ -110,5 +112,5 @@ void executeBatchFile(const char* filePath) {
     }
 
     file.close();
-    std::cout << "[TPCShell] Hoan thanh thuc thi file script.\n";
+    std::cout << "[TPCShell] Finished batch file execution.\n";
 }
