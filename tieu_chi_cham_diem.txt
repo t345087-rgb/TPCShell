@@ -1,0 +1,12 @@
+Tiêu chí chấm điểm project tiny_shell môn hệ điều hành:
+Nội trú (2đ): help, dir, cd_pwd, time, ....
+Background (2đ): 
+List, stop, kill (4đ):
+Foreground (2đ):
+Ctrl+C (2đ):
+Môi trường (3đ):
+File .bat (3đ):
+Báo cáo (2đ):
+(chấm theo thang tương ứng: 2, 2, 4, 2, 2, 3, 3, 2 - tổng 20)
+
+Note thêm: Kỹ năng demo ntn, chia việc có rõ ràng không,...
