@@ -11,7 +11,7 @@ int main() {
     std::string input;
     
     std::cout << "======================================\n";
-    std::cout << "  Chao mung den voi TPCShell (v1.0)   \n";
+    std::cout << "  Welcome to TPCShell (v1.0)          \n";
     std::cout << "======================================\n";
     std::cout << "Type 'help' for available commands.\n\n";
 
