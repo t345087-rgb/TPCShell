@@ -51,7 +51,20 @@ void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
     // XỬ LÝ CHẾ ĐỘ FOREGROUND / BACKGROUND THEO ĐỀ BÀI
     if (!isBackground) {
         // 1. Chế độ Foreground: TPCShell đứng đợi tiến trình con chạy xong
-        WaitForSingleObject(pi.hProcess, INFINITE);
+        const bool foregroundRegistered =
+            setForegroundProcess(pi.dwProcessId, pi.hProcess);
+        const DWORD waitResult = WaitForSingleObject(pi.hProcess, INFINITE);
+
+        if (waitResult == WAIT_FAILED) {
+            const DWORD errorCode = GetLastError();
+            std::cerr << "[TPCShell] Canh bao: khong the cho tien trinh "
+                      << "foreground PID " << pi.dwProcessId
+                      << " ket thuc. Ma loi Windows: " << errorCode << '\n';
+        }
+
+        if (foregroundRegistered) {
+            clearForegroundProcess();
+        }
         
         // Giải phóng tài nguyên ngay sau khi tiến trình kết thúc
         CloseHandle(pi.hProcess);

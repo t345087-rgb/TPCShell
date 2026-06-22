@@ -6,6 +6,24 @@
 
 namespace {
 std::vector<BackgroundProcess> backgroundProcesses;
+DWORD foregroundPid = 0;
+HANDLE foregroundHandle = NULL;
+SRWLOCK foregroundLock = SRWLOCK_INIT;
+
+BOOL WINAPI consoleCtrlHandler(DWORD ctrlType) {
+    if (ctrlType != CTRL_C_EVENT) {
+        return FALSE;
+    }
+
+    AcquireSRWLockShared(&foregroundLock);
+    if (foregroundHandle != NULL &&
+        foregroundHandle != INVALID_HANDLE_VALUE) {
+        TerminateProcess(foregroundHandle, 130);
+    }
+    ReleaseSRWLockShared(&foregroundLock);
+
+    return TRUE;
+}
 
 bool isHandleOwnedByAnotherRecord(HANDLE hProcess, std::size_t excludedIndex) {
     if (hProcess == NULL || hProcess == INVALID_HANDLE_VALUE) {
@@ -66,6 +84,50 @@ void rollbackResumedThreads(const std::vector<DWORD>& threadIds, DWORD pid) {
         CloseHandle(hThread);
     }
 }
+}
+
+bool setForegroundProcess(DWORD pid, HANDLE hProcess) {
+    if (pid == 0 || hProcess == NULL || hProcess == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    HANDLE duplicatedHandle = NULL;
+    if (!DuplicateHandle(
+            GetCurrentProcess(),
+            hProcess,
+            GetCurrentProcess(),
+            &duplicatedHandle,
+            PROCESS_TERMINATE | SYNCHRONIZE,
+            FALSE,
+            0)) {
+        const DWORD errorCode = GetLastError();
+        std::cerr << "[TPCShell] Failed to duplicate the foreground process "
+                  << "handle for PID " << pid
+                  << ". Windows error: " << errorCode << '\n';
+        return false;
+    }
+
+    AcquireSRWLockExclusive(&foregroundLock);
+    if (foregroundHandle != NULL &&
+        foregroundHandle != INVALID_HANDLE_VALUE) {
+        CloseHandle(foregroundHandle);
+    }
+    foregroundHandle = duplicatedHandle;
+    foregroundPid = pid;
+    ReleaseSRWLockExclusive(&foregroundLock);
+
+    return true;
+}
+
+void clearForegroundProcess() {
+    AcquireSRWLockExclusive(&foregroundLock);
+    if (foregroundHandle != NULL &&
+        foregroundHandle != INVALID_HANDLE_VALUE) {
+        CloseHandle(foregroundHandle);
+    }
+    foregroundHandle = NULL;
+    foregroundPid = 0;
+    ReleaseSRWLockExclusive(&foregroundLock);
 }
 
 void addBackgroundProcess(DWORD pid, HANDLE hProcess, const char* cmdName) {
@@ -430,5 +492,9 @@ void resumeProcess(DWORD pid) {
 }
 
 void setupSignalHandler() {
-    // CHÍNH VIẾT CODE SETCONSOLECTRLHANDLER
+    if (!SetConsoleCtrlHandler(consoleCtrlHandler, TRUE)) {
+        const DWORD errorCode = GetLastError();
+        std::cerr << "[TPCShell] Failed to register the console control "
+                  << "handler. Windows error: " << errorCode << '\n';
+    }
 }
