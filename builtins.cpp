@@ -14,6 +14,10 @@
 #include <cstdlib>
 #include <stdexcept>
 
+namespace {
+std::vector<std::string> shellPaths;
+}
+
 void cmdHelp() {
     std::cout << "\n=== TPCShell Help ===\n";
     std::cout << "Available commands:\n\n";
@@ -25,15 +29,18 @@ void cmdHelp() {
     std::cout << "  time              - Display current time\n";
     std::cout << "  dir [path]        - List directory contents\n";
     std::cout << "  cd <path>         - Change directory\n";
+    std::cout << "  mkdir <dir>       - Create a directory\n";
+    std::cout << "  deldir <dir>      - Remove an empty directory\n";
     std::cout << "  pwd               - Display current working directory\n";
     std::cout << "  clear             - Clear the screen\n";
-    std::cout << "  path              - Display PATH environment variable\n";
-    std::cout << "  addpath <dir>     - Add directory to PATH\n";
-    std::cout << "  delpath <dir>     - Remove directory from PATH\n\n";
+    std::cout << "  path              - Display TPCShell-local PATH entries\n";
+    std::cout << "  addpath <dir>     - Add directory to TPCShell-local PATH\n";
+    std::cout << "  delpath <dir>     - Remove directory from TPCShell-local PATH\n\n";
 
     std::cout << "Process Commands:\n";
     std::cout << "  list              - List background processes\n";
     std::cout << "  kill <PID>        - Terminate a background process\n";
+    std::cout << "  killall           - Terminate all managed background processes\n";
     std::cout << "  stop <PID>        - Pause a background process\n";
     std::cout << "  resume <PID>      - Resume a paused process\n\n";
 
@@ -142,6 +149,38 @@ void cmdCd(const std::vector<std::string>& args) {
     }
 }
 
+void cmdMkdir(const std::vector<std::string>& args) {
+    if (args.size() != 1) {
+        std::cerr << "Usage: mkdir <directory>\n";
+        return;
+    }
+
+    const std::string& directory = args[0];
+    if (CreateDirectoryA(directory.c_str(), NULL)) {
+        std::cout << "[TPCShell] Directory created: " << directory << "\n";
+        return;
+    }
+
+    std::cerr << "[TPCShell] Failed to create directory '" << directory
+              << "'. Windows error: " << GetLastError() << "\n";
+}
+
+void cmdDeldir(const std::vector<std::string>& args) {
+    if (args.size() != 1) {
+        std::cerr << "Usage: deldir <directory>\n";
+        return;
+    }
+
+    const std::string& directory = args[0];
+    if (RemoveDirectoryA(directory.c_str())) {
+        std::cout << "[TPCShell] Directory removed: " << directory << "\n";
+        return;
+    }
+
+    std::cerr << "[TPCShell] Failed to remove directory '" << directory
+              << "'. Windows error: " << GetLastError() << "\n";
+}
+
 void cmdPwd() {
     char currentDir[MAX_PATH];
 
@@ -188,113 +227,46 @@ void cmdClear() {
 }
 
 void cmdPath() {
-    char* pathEnv = getenv("PATH");
+    if (shellPaths.empty()) {
+        std::cout << "[TPCShell] Shell PATH is empty.\n";
+        return;
+    }
 
-    if (pathEnv) {
-        std::cout << "\nPATH environment variable:\n";
-
-        std::string pathStr(pathEnv);
-        std::string delimiter = ";";
-        size_t pos = 0;
-        int count = 1;
-
-        while ((pos = pathStr.find(delimiter)) != std::string::npos) {
-            std::cout << "  " << count++ << ". " << pathStr.substr(0, pos) << "\n";
-            pathStr.erase(0, pos + delimiter.length());
-        }
-
-        if (!pathStr.empty()) {
-            std::cout << "  " << count << ". " << pathStr << "\n";
-        }
-
-        std::cout << "\n";
-    } else {
-        std::cout << "PATH environment variable is not set.\n";
+    std::cout << "[TPCShell] Shell PATH entries:\n";
+    for (std::size_t i = 0; i < shellPaths.size(); ++i) {
+        std::cout << "  " << (i + 1) << ". " << shellPaths[i] << "\n";
     }
 }
 
 void cmdAddPath(const std::string& dir) {
     if (dir.empty()) {
-        std::cerr << "addpath: missing directory argument\n";
+        std::cerr << "Usage: addpath <directory>\n";
         return;
     }
 
-    char* pathEnv = getenv("PATH");
-    std::string newPath;
-
-    if (pathEnv) {
-        newPath = std::string(pathEnv) + ";" + dir;
-    } else {
-        newPath = dir;
+    if (std::find(shellPaths.begin(), shellPaths.end(), dir) != shellPaths.end()) {
+        std::cout << "[TPCShell] PATH entry already exists: " << dir << "\n";
+        return;
     }
 
-    if (_putenv_s("PATH", newPath.c_str()) == 0) {
-        std::cout << "Added '" << dir << "' to PATH\n";
-    } else {
-        std::cerr << "addpath: failed to add directory\n";
-    }
+    shellPaths.push_back(dir);
+    std::cout << "[TPCShell] Added PATH entry: " << dir << "\n";
 }
 
 void cmdDelPath(const std::string& dir) {
     if (dir.empty()) {
-        std::cerr << "delpath: missing directory argument\n";
+        std::cerr << "Usage: delpath <directory>\n";
         return;
     }
 
-    char* pathEnv = getenv("PATH");
-
-    if (!pathEnv) {
-        std::cout << "PATH is already empty\n";
+    auto entry = std::find(shellPaths.begin(), shellPaths.end(), dir);
+    if (entry == shellPaths.end()) {
+        std::cout << "[TPCShell] PATH entry not found: " << dir << "\n";
         return;
     }
 
-    std::string pathStr(pathEnv);
-    std::string delimiter = ";";
-    std::string newPath = "";
-
-    size_t pos = 0;
-    bool first = true;
-    bool removed = false;
-
-    while ((pos = pathStr.find(delimiter)) != std::string::npos) {
-        std::string token = pathStr.substr(0, pos);
-
-        if (token != dir) {
-            if (!first) {
-                newPath += ";";
-            }
-
-            newPath += token;
-            first = false;
-        } else {
-            removed = true;
-        }
-
-        pathStr.erase(0, pos + delimiter.length());
-    }
-
-    // Handle last token
-    if (!pathStr.empty()) {
-        if (pathStr != dir) {
-            if (!first) {
-                newPath += ";";
-            }
-
-            newPath += pathStr;
-        } else {
-            removed = true;
-        }
-    }
-
-    if (_putenv_s("PATH", newPath.c_str()) == 0) {
-        if (removed) {
-            std::cout << "Removed '" << dir << "' from PATH\n";
-        } else {
-            std::cout << "'" << dir << "' was not found in PATH\n";
-        }
-    } else {
-        std::cerr << "delpath: failed to remove directory\n";
-    }
+    shellPaths.erase(entry);
+    std::cout << "[TPCShell] Removed PATH entry: " << dir << "\n";
 }
 
 bool isBuiltinCommand(const std::string& cmd) {
@@ -304,6 +276,8 @@ bool isBuiltinCommand(const std::string& cmd) {
            cmd == "time" ||
            cmd == "dir" ||
            cmd == "cd" ||
+           cmd == "mkdir" ||
+           cmd == "deldir" ||
            cmd == "pwd" ||
            cmd == "clear" ||
            cmd == "path" ||
@@ -311,6 +285,7 @@ bool isBuiltinCommand(const std::string& cmd) {
            cmd == "delpath" ||
            cmd == "list" ||
            cmd == "kill" ||
+           cmd == "killall" ||
            cmd == "stop" ||
            cmd == "resume";
 }
@@ -354,6 +329,12 @@ void executeBuiltin(const ParsedCommand& parsed) {
     } else if (parsed.command == "cd") {
         cmdCd(parsed.args);
 
+    } else if (parsed.command == "mkdir") {
+        cmdMkdir(parsed.args);
+
+    } else if (parsed.command == "deldir") {
+        cmdDeldir(parsed.args);
+
     } else if (parsed.command == "pwd") {
         cmdPwd();
 
@@ -364,17 +345,17 @@ void executeBuiltin(const ParsedCommand& parsed) {
         cmdPath();
 
     } else if (parsed.command == "addpath") {
-        if (!parsed.args.empty()) {
+        if (parsed.args.size() == 1) {
             cmdAddPath(parsed.args[0]);
         } else {
-            std::cerr << "addpath: missing argument\n";
+            std::cerr << "Usage: addpath <directory>\n";
         }
 
     } else if (parsed.command == "delpath") {
-        if (!parsed.args.empty()) {
+        if (parsed.args.size() == 1) {
             cmdDelPath(parsed.args[0]);
         } else {
-            std::cerr << "delpath: missing argument\n";
+            std::cerr << "Usage: delpath <directory>\n";
         }
 
     } else if (parsed.command == "list") {
@@ -384,6 +365,13 @@ void executeBuiltin(const ParsedCommand& parsed) {
         DWORD pid = 0;
         if (parsePidArgument(parsed.args, "kill", pid)) {
             killProcess(pid);
+        }
+
+    } else if (parsed.command == "killall") {
+        if (parsed.args.empty()) {
+            killAllProcesses();
+        } else {
+            std::cerr << "Usage: killall\n";
         }
 
     } else if (parsed.command == "stop") {
