@@ -1,5 +1,5 @@
 ﻿#include "controller.h"
-#include <TlHelp32.h>
+#include <tlhelp32.h>
 #include <iomanip>
 #include <iostream>
 #include <vector>
