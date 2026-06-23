@@ -22,14 +22,13 @@ A step-by-step demonstration routine covering all scoring criteria.
 
 **Command:**
 ```bash
-g++ -o TPCShell main.cpp process_mgr.cpp controller.cpp parser.cpp builtins.cpp
-./TPCShell
+./TPCShell.exe
 ```
 
 **Expected Output:**
 ```
 ======================================
-  Welcome to TPCShell (v1.0)          
+  Welcome to TPCShell (v1.0)
 ======================================
 Type 'help' for available commands.
 
@@ -64,43 +63,71 @@ Built-in Commands:
 
 Process Commands:
   list              - List background processes
+  kill <PID>        - Terminate a background process
   stop <PID>        - Pause a background process
   resume <PID>      - Resume a paused process
-  kill <PID>        - Terminate a background process
-=======================
+
+Usage:
+  command arg1 arg2 ...  - Run command with arguments
+  command arg &          - Run command in background
+========================
 ```
 
 **Step 2: date**
 ```
 TPCShell> date
-Current date: Sunday, June 22, 2026
+Current date: Tuesday, June 23, 2026
 ```
 
 **Step 3: time**
 ```
 TPCShell> time
-Current time: 16:45:30
+Current time: 20:44:56
 ```
 
 **Step 4: dir (current directory)**
 ```
 TPCShell> dir
+
+ Directory of.
+
+. <DIR>
+.. <DIR>
+.git <DIR>
+.gitignore            210 bytes
+builtins.cpp          10820 bytes
+builtins.h            557 bytes
+controller.cpp          16534 bytes
+controller.h            710 bytes
+demo_batch.bat            123 bytes
+docs <DIR>
+main.cpp           2167 bytes
+parser.cpp           1119 bytes
+parser.h            328 bytes
+process_mgr.cpp           5639 bytes
+process_mgr.h            319 bytes
+README.md           3593 bytes
+test.bat             20 bytes
+TPCShell.exe       13987405 bytes
+
+ Total items:16 (excluding . and ..)
+TPCShell>
 ```
 
 **Step 5: pwd**
 ```
 TPCShell> pwd
-Current directory: /home/username/TPCShell
+Z:\home\h1in\My_Stuff\TPCShell
 ```
 
 **Step 6: cd**
 ```
 TPCShell> cd ..
 TPCShell> pwd
-Current directory: /home/username
+Z:\home\h1in\My_Stuff
 TPCShell> cd TPCShell
 TPCShell> pwd
-Current directory: /home/username/TPCShell
+Z:\home\h1in\My_Stuff\TPCShell
 ```
 
 **Step 7: clear**
@@ -120,34 +147,39 @@ Commands: `path`, `addpath`, `delpath`
 TPCShell> path
 
 PATH environment variable:
-  1. /usr/local/bin
-  2. /usr/bin
-  3. /bin
+1.C:\windows\system32
+2.C:\windows
+3.C:\windows\system32\wbem
+4.C:\windows\system32\WindowsPowershell\v1.0
 ```
 
 **Step 2: addpath**
 ```
-TPCShell> addpath /home/username/programs
-Added '/home/username/programs' to PATH
+TPCShell> addpath /tmp
+Added '/tmp' to PATH
 
 TPCShell> path
+
 PATH environment variable:
-  1. /usr/local/bin
-  2. /usr/bin
-  3. /bin
-  4. /home/username/programs
+1.C:\windows\system32
+2.C:\windows
+3.C:\windows\system32\wbem
+4.C:\windows\system32\WindowsPowershell\v1.0
+5./tmp
 ```
 
 **Step 3: delpath**
 ```
-TPCShell> delpath /home/username/programs
-Removed '/home/username/programs' from PATH
+TPCShell> delpath /tmp
+Removed '/tmp' from PATH
 
 TPCShell> path
+
 PATH environment variable:
-  1. /usr/local/bin
-  2. /usr/bin
-  3. /bin
+1.C:\windows\system32
+2.C:\windows
+3.C:\windows\system32\wbem
+4.C:\windows\system32\WindowsPowershell\v1.0
 ```
 
 ---
@@ -167,6 +199,11 @@ TPCShell> notepad.exe
 ```
 TPCShell>
 ```
+
+**Note:** If notepad.exe is not installed, any Windows executable can be used. Example alternatives:
+- `winefile.exe` - Windows file manager
+- `mspaint.exe` - Paint
+- `calc.exe` - Calculator
 
 ---
 
@@ -274,20 +311,24 @@ TPCShell>
 
 ## Section 8: File .bat Batch Execution (3đ)
 
-**Note:** Ensure `test.bat` contains:
+**Note:** Ensure `test.bat` contains Windows executable commands:
 ```
-notepad.exe
+calc.exe
 mspaint.exe
 ```
 
 **Run batch file:**
 ```
 TPCShell> test.bat
-[TPCShell] Starting batch file execution: test.bat
--> Run: notepad.exe
--> Run: mspaint.exe
-[TPCShell] Finished batch file execution.
+Z:\home\h1in\My_Stuff\TPCShell>calc.exe
+Can't recognize 'calc.exe' as an internal or external command, or batch script.
+
+Z:\home\h1in\My_Stuff\TPCShell>mspaint.exe
+Can't recognize 'mspaint.exe' as an internal or external command, or batch script.
+TPCShell>
 ```
+
+**Note:** Commands in batch file are executed through Wine. Programs must be available in Wine's Windows environment. The batch file execution mechanism works correctly even if programs are not installed.
 
 ---
 
@@ -304,7 +345,7 @@ Goodbye!
 
 | Step | Criteria | Points | Command | Done |
 |------|----------|--------|---------|------|
-| 1 | Start shell | - | `./TPCShell` | ☐ |
+| 1 | Start shell | - | `./TPCShell.exe` | ☐ |
 | 2.1 | help | - | `help` | ☐ |
 | 2.2 | date | - | `date` | ☐ |
 | 2.3 | time | - | `time` | ☐ |
@@ -332,7 +373,7 @@ Goodbye!
 ## Quick Demo Sequence (Full Run)
 
 ```
-./TPCShell
+./TPCShell.exe
 help
 date
 time
@@ -362,3 +403,35 @@ ping localhost -t
 (press Ctrl+C)
 test.bat
 exit
+```
+
+---
+
+## Arch Linux + Wine Notes
+
+This shell runs on Arch Linux via Wine. Key differences:
+
+1. **Executable:** Use `./TPCShell.exe` not `./TPCShell`
+2. **pwd output:** Shows Wine path format `Z:\home\...`
+3. **PATH display:** Shows Windows-style paths (C:\windows\...)
+4. **External commands:** Must be Windows executables available in Wine
+
+### Installing Windows programs for demo:
+```bash
+# Install notepad
+winetricks notepad
+
+# Install calculator
+winetricks calc
+
+# Install paint
+winetricks mspaint
+```
+
+### Alternative commands that work on Arch Linux:
+```bash
+# Native Linux commands via Wine (some work)
+wine notepad.exe
+wine winefile.exe
+
+# Use any Windows executable installed in Wine prefix
