@@ -7,6 +7,83 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <cstring>
+#include <algorithm>
+#include <cctype>
+
+namespace {
+bool containsWhitespace(const std::string& value) {
+    return value.find_first_of(" \t") != std::string::npos;
+}
+
+std::string quoteIfNeeded(const std::string& value) {
+    if (containsWhitespace(value)) {
+        return "\"" + value + "\"";
+    }
+
+    return value;
+}
+
+std::string trim(const std::string& value) {
+    const std::size_t first = value.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) {
+        return "";
+    }
+
+    const std::size_t last = value.find_last_not_of(" \t\r\n");
+    return value.substr(first, last - first + 1);
+}
+
+std::string toLower(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char ch) {
+                       return static_cast<char>(std::tolower(ch));
+                   });
+    return value;
+}
+
+bool fileExistsAndIsNotDirectory(const std::string& path) {
+    const DWORD attributes = GetFileAttributesA(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES &&
+           (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+bool hasBatchExtension(const std::string& path) {
+    const std::size_t dot = path.find_last_of('.');
+    if (dot == std::string::npos) {
+        return false;
+    }
+
+    const std::string extension = toLower(path.substr(dot));
+    return extension == ".bat" || extension == ".cmd";
+}
+
+bool resolveBatchFile(const std::string& command, std::string& batchPath) {
+    batchPath.clear();
+
+    if (hasBatchExtension(command) && fileExistsAndIsNotDirectory(command)) {
+        batchPath = command;
+        return true;
+    }
+
+    std::string resolvedCommand;
+    if (resolveCommandFromShellPath(command, resolvedCommand) &&
+        hasBatchExtension(resolvedCommand)) {
+        batchPath = resolvedCommand;
+        return true;
+    }
+
+    return false;
+}
+
+bool isCommentLine(const std::string& line) {
+    const std::string lowerLine = toLower(line);
+    return line.empty() ||
+           line[0] == '#' ||
+           lowerLine == "rem" ||
+           lowerLine.rfind("rem ", 0) == 0;
+}
+}
 
 void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
     STARTUPINFOA si;
@@ -19,15 +96,27 @@ void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
     // CHUẨN HÓA THAM SỐ: Ghép mảng argv[] thành một chuỗi CommandLine duy nhất cho Windows API
     std::string fullCommandLine = "";
     if (argv != NULL && argv[0] != NULL) {
+        std::string executable = argv[0];
+        std::string resolvedExecutable;
+        if (resolveCommandFromShellPath(executable, resolvedExecutable)) {
+            executable = resolvedExecutable;
+        }
+
+        fullCommandLine = quoteIfNeeded(executable);
+
         int i = 0;
-        while (argv[i] != NULL) {
-            fullCommandLine += argv[i];
+        while (argv[++i] != NULL) {
             fullCommandLine += " ";
-            i++;
+            fullCommandLine += argv[i];
         }
     } else {
         // Nếu bộ Parser của Tuấn chưa truyền argv, tạm thời lấy cmdName làm dòng lệnh
-        fullCommandLine = cmdName;
+        std::string executable = cmdName != NULL ? cmdName : "";
+        std::string resolvedExecutable;
+        if (resolveCommandFromShellPath(executable, resolvedExecutable)) {
+            executable = resolvedExecutable;
+        }
+        fullCommandLine = quoteIfNeeded(executable);
     }
 
     // Chuyển đổi chuỗi thành mảng char có thể chỉnh sửa (LPSTR) theo yêu cầu của CreateProcessA
@@ -52,6 +141,8 @@ void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
         delete[] lpCommandLine;
         return;
     }
+
+    registerBatchProcess(pi.dwProcessId);
 
     // XỬ LÝ CHẾ ĐỘ FOREGROUND / BACKGROUND THEO ĐỀ BÀI
     if (!isBackground) {
@@ -91,6 +182,51 @@ void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
     delete[] lpCommandLine;
 }
 
+CommandResult executeShellLine(const std::string& input) {
+    const std::string trimmed = trim(input);
+    if (trimmed.empty()) {
+        return CommandResult::Continue;
+    }
+
+    ParsedCommand parsed = parseCommand(trimmed);
+    if (parsed.command.empty()) {
+        return CommandResult::Continue;
+    }
+
+    if (isBuiltinCommand(parsed.command)) {
+        if (parsed.command == "exit") {
+            return CommandResult::Exit;
+        }
+
+        executeBuiltin(parsed);
+        return CommandResult::Continue;
+    }
+
+    std::string batchPath;
+    if (resolveBatchFile(parsed.command, batchPath)) {
+        if (parsed.isBackground) {
+            std::cerr << "[TPCShell] Batch files cannot be started with '&' "
+                      << "because TPCShell interprets them internally.\n";
+            return CommandResult::Continue;
+        }
+
+        executeBatchFile(batchPath.c_str());
+        return CommandResult::Continue;
+    }
+
+    std::vector<char*> argv;
+    argv.push_back(const_cast<char*>(parsed.command.c_str()));
+
+    for (const auto& arg : parsed.args) {
+        argv.push_back(const_cast<char*>(arg.c_str()));
+    }
+
+    argv.push_back(nullptr);
+
+    executeCommand(argv[0], argv.data(), parsed.isBackground);
+    return CommandResult::Continue;
+}
+
 void executeBatchFile(const char* filePath) {
     std::ifstream file(filePath);
     
@@ -100,60 +236,31 @@ void executeBatchFile(const char* filePath) {
     }
 
     std::cout << "[TPCShell] Starting batch file execution: " << filePath << "\n";
+    beginBatchExecution();
 
     std::string line;
     
     while (std::getline(file, line)) {
-        // Trim whitespace
-        std::string trimmed = line;
-        trimmed.erase(0, trimmed.find_first_not_of(" \t\r\n"));
-
-        std::size_t last = trimmed.find_last_not_of(" \t\r\n");
-        if (last == std::string::npos) {
-            continue;
+        if (isBatchCancellationRequested()) {
+            std::cout << "[TPCShell] Batch execution cancelled by Ctrl+C.\n";
+            break;
         }
-        trimmed.erase(last + 1);
 
+        const std::string trimmed = trim(line);
         // Bỏ qua dòng trống hoặc comment
-        if (trimmed.empty() || trimmed[0] == '#'
-            || trimmed == "rem"
-            || trimmed.rfind("rem ", 0) == 0
-            || trimmed.rfind("REM ", 0) == 0) {
+        if (isCommentLine(trimmed)) {
             continue;
         }
 
         std::cout << "-> Run: " << trimmed << "\n";
 
-        ParsedCommand parsed = parseCommand(trimmed);
-
-        if (parsed.command.empty()) {
-            continue;
+        if (executeShellLine(trimmed) == CommandResult::Exit) {
+            std::cout << "[TPCShell] Batch execution stopped by exit command.\n";
+            break;
         }
-
-        // Xử lý built-in command trong batch file
-        if (isBuiltinCommand(parsed.command)) {
-            if (parsed.command == "exit") {
-                std::cout << "[TPCShell] Batch execution stopped by exit command.\n";
-                break;
-            }
-
-            executeBuiltin(parsed);
-            continue;
-        }
-
-        // Xử lý external command trong batch file
-        std::vector<char*> argv;
-        argv.push_back(const_cast<char*>(parsed.command.c_str()));
-
-        for (const auto& arg : parsed.args) {
-            argv.push_back(const_cast<char*>(arg.c_str()));
-        }
-
-        argv.push_back(nullptr);
-
-        executeCommand(argv[0], argv.data(), parsed.isBackground);
     }
 
     file.close();
+    endBatchExecution();
     std::cout << "[TPCShell] Finished batch file execution.\n";
 }

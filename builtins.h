@@ -16,6 +16,7 @@ void cmdDeldir(const std::vector<std::string>& args);
 void cmdPath();
 void cmdAddPath(const std::string& dir);
 void cmdDelPath(const std::string& dir);
+bool resolveCommandFromShellPath(const std::string& command, std::string& resolvedCommand);
 
 // Kiểm tra xem lệnh có phải là built-in không
 bool isBuiltinCommand(const std::string& cmd);

@@ -42,7 +42,14 @@ TPCShell> clear
 
 ## 3. TPCShell-Local PATH Demo
 
-`path`, `addpath`, and `delpath` manage a demo-only TPCShell-local PATH list. They do not print the full Windows PATH and do not modify the system PATH.
+`path`, `addpath`, and `delpath` manage a TPCShell-local PATH list. They do not print the full Windows PATH and do not modify the system PATH. TPCShell uses this local list when looking up external commands.
+
+Prepare a demo executable from PowerShell:
+
+```powershell
+mkdir C:\TestDemo
+Copy-Item C:\Windows\System32\mspaint.exe C:\TestDemo\paintdemo.exe
+```
 
 ```text
 TPCShell> path
@@ -52,11 +59,17 @@ TPCShell> addpath C:\TestDemo
 TPCShell> path
 [TPCShell] Shell PATH entries:
   1. C:\TestDemo
+TPCShell> paintdemo.exe &
+[TPCShell] Background process started successfully. PID: 1234
+TPCShell> list
+TPCShell> kill 1234
 TPCShell> delpath C:\TestDemo
 [TPCShell] Removed PATH entry: C:\TestDemo
 TPCShell> path
 [TPCShell] Shell PATH is empty.
 ```
+
+Use the PID shown by your own `list` output.
 
 ## 4. Foreground And Ctrl+C
 
