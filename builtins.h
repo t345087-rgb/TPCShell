@@ -11,6 +11,8 @@ void cmdDate();
 void cmdTime();
 void cmdDir(const std::vector<std::string>& args);
 void cmdCd(const std::vector<std::string>& args);
+void cmdMkdir(const std::vector<std::string>& args);
+void cmdDeldir(const std::vector<std::string>& args);
 void cmdPath();
 void cmdAddPath(const std::string& dir);
 void cmdDelPath(const std::string& dir);

@@ -20,6 +20,7 @@ void clearForegroundProcess();
 void addBackgroundProcess(DWORD pid, HANDLE hProcess, const char* cmdName);
 void listBackgroundProcesses();
 void killProcess(DWORD pid);
+void killAllProcesses();
 void stopProcess(DWORD pid);
 void resumeProcess(DWORD pid);
 void setupSignalHandler();

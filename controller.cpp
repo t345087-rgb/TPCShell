@@ -248,6 +248,59 @@ void killProcess(DWORD pid) {
               << " is not managed by TPCShell.\n";
 }
 
+void killAllProcesses() {
+    if (backgroundProcesses.empty()) {
+        std::cout << "[TPCShell] No managed background processes to terminate.\n";
+        return;
+    }
+
+    int terminatedCount = 0;
+
+    for (auto process = backgroundProcesses.begin();
+         process != backgroundProcesses.end();) {
+        const DWORD pid = process->pid;
+        const DWORD waitResult = WaitForSingleObject(process->hProcess, 0);
+
+        if (waitResult == WAIT_OBJECT_0) {
+            CloseHandle(process->hProcess);
+            process = backgroundProcesses.erase(process);
+            continue;
+        }
+
+        if (waitResult == WAIT_FAILED) {
+            const DWORD errorCode = GetLastError();
+            std::cerr << "[TPCShell] Failed to inspect process PID "
+                      << pid << ". Windows error: " << errorCode << '\n';
+            ++process;
+            continue;
+        }
+
+        if (!TerminateProcess(process->hProcess, 1)) {
+            const DWORD errorCode = GetLastError();
+            std::cerr << "[TPCShell] Failed to terminate process PID "
+                      << pid << ". Windows error: " << errorCode << '\n';
+            ++process;
+            continue;
+        }
+
+        const DWORD completionWait =
+            WaitForSingleObject(process->hProcess, INFINITE);
+        if (completionWait == WAIT_FAILED) {
+            const DWORD errorCode = GetLastError();
+            std::cerr << "[TPCShell] Warning: failed to wait for process PID "
+                      << pid << " to exit. Windows error: "
+                      << errorCode << '\n';
+        }
+
+        CloseHandle(process->hProcess);
+        process = backgroundProcesses.erase(process);
+        ++terminatedCount;
+    }
+
+    std::cout << "[TPCShell] Terminated " << terminatedCount
+              << " background process(es).\n";
+}
+
 void stopProcess(DWORD pid) {
     auto processIt = backgroundProcesses.begin();
     while (processIt != backgroundProcesses.end() && processIt->pid != pid) {
