@@ -1,8 +1,12 @@
 ﻿#include "process_mgr.h"
-#include "controller.h" // Kết nối với module của Chính để quản lý tiến trình ngầm
+#include "controller.h"
+#include "parser.h"
+#include "builtins.h"
+
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 
 void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
     STARTUPINFOA si;
@@ -96,19 +100,58 @@ void executeBatchFile(const char* filePath) {
     }
 
     std::cout << "[TPCShell] Starting batch file execution: " << filePath << "\n";
+
     std::string line;
     
-    // Đọc từng dòng trong file batch
     while (std::getline(file, line)) {
-        // Bỏ qua dòng trống hoặc dòng chú thích
-        if (line.empty() || line[0] == '#' || line.rfind("rem", 0) == 0) {
+        // Trim whitespace
+        std::string trimmed = line;
+        trimmed.erase(0, trimmed.find_first_not_of(" \t\r\n"));
+
+        std::size_t last = trimmed.find_last_not_of(" \t\r\n");
+        if (last == std::string::npos) {
+            continue;
+        }
+        trimmed.erase(last + 1);
+
+        // Bỏ qua dòng trống hoặc comment
+        if (trimmed.empty() || trimmed[0] == '#'
+            || trimmed == "rem"
+            || trimmed.rfind("rem ", 0) == 0
+            || trimmed.rfind("REM ", 0) == 0) {
             continue;
         }
 
-        std::cout << "-> Run: " << line << "\n";
+        std::cout << "-> Run: " << trimmed << "\n";
 
-        // Mặc định chạy các lệnh trong file script ở chế độ Foreground nối đuôi nhau
-        executeCommand(line.c_str(), NULL, false); 
+        ParsedCommand parsed = parseCommand(trimmed);
+
+        if (parsed.command.empty()) {
+            continue;
+        }
+
+        // Xử lý built-in command trong batch file
+        if (isBuiltinCommand(parsed.command)) {
+            if (parsed.command == "exit") {
+                std::cout << "[TPCShell] Batch execution stopped by exit command.\n";
+                break;
+            }
+
+            executeBuiltin(parsed);
+            continue;
+        }
+
+        // Xử lý external command trong batch file
+        std::vector<char*> argv;
+        argv.push_back(const_cast<char*>(parsed.command.c_str()));
+
+        for (const auto& arg : parsed.args) {
+            argv.push_back(const_cast<char*>(arg.c_str()));
+        }
+
+        argv.push_back(nullptr);
+
+        executeCommand(argv[0], argv.data(), parsed.isBackground);
     }
 
     file.close();
