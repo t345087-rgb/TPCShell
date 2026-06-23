@@ -16,6 +16,30 @@
 
 namespace {
 std::vector<std::string> shellPaths;
+
+bool hasPathSeparator(const std::string& command) {
+    return command.find('\\') != std::string::npos ||
+           command.find('/') != std::string::npos;
+}
+
+bool fileExistsAndIsNotDirectory(const std::string& path) {
+    const DWORD attributes = GetFileAttributesA(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES &&
+           (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+std::string joinPath(const std::string& directory, const std::string& filename) {
+    if (directory.empty()) {
+        return filename;
+    }
+
+    const char last = directory.back();
+    if (last == '\\' || last == '/') {
+        return directory + filename;
+    }
+
+    return directory + "\\" + filename;
+}
 }
 
 void cmdHelp() {
@@ -267,6 +291,36 @@ void cmdDelPath(const std::string& dir) {
 
     shellPaths.erase(entry);
     std::cout << "[TPCShell] Removed PATH entry: " << dir << "\n";
+}
+
+bool resolveCommandFromShellPath(const std::string& command, std::string& resolvedCommand) {
+    resolvedCommand.clear();
+
+    if (command.empty() || hasPathSeparator(command)) {
+        return false;
+    }
+
+    std::vector<std::string> filenames;
+    if (command.find('.') != std::string::npos) {
+        filenames.push_back(command);
+    } else {
+        filenames.push_back(command + ".exe");
+        filenames.push_back(command + ".bat");
+        filenames.push_back(command + ".cmd");
+        filenames.push_back(command + ".com");
+    }
+
+    for (const std::string& directory : shellPaths) {
+        for (const std::string& filename : filenames) {
+            const std::string candidate = joinPath(directory, filename);
+            if (fileExistsAndIsNotDirectory(candidate)) {
+                resolvedCommand = candidate;
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 bool isBuiltinCommand(const std::string& cmd) {

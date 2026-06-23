@@ -37,12 +37,22 @@ Expected directory messages:
 
 ## 3. TPCShell-Local PATH
 
-This is a shell-local demo list, not the full Windows PATH.
+This is a shell-local PATH list, not the full Windows PATH. TPCShell uses it to find external commands without modifying the Windows system PATH.
+
+Prepare from PowerShell before this part:
+
+```powershell
+mkdir C:\TestDemo
+Copy-Item C:\Windows\System32\mspaint.exe C:\TestDemo\paintdemo.exe
+```
 
 ```text
 path
 addpath C:\TestDemo
 path
+paintdemo.exe &
+list
+kill <PID>
 delpath C:\TestDemo
 path
 ```
@@ -54,8 +64,11 @@ Expected key output:
 [TPCShell] Added PATH entry: C:\TestDemo
 [TPCShell] Shell PATH entries:
   1. C:\TestDemo
+[TPCShell] Background process started successfully. PID: 1234
 [TPCShell] Removed PATH entry: C:\TestDemo
 ```
+
+Replace `<PID>` with the managed PID shown by `list`.
 
 ## 4. Foreground
 

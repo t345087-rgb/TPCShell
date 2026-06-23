@@ -2,6 +2,19 @@
 #include <sstream>
 #include <algorithm>
 
+namespace {
+void trimInPlace(std::string& value) {
+    const std::size_t first = value.find_first_not_of(" \t");
+    if (first == std::string::npos) {
+        value.clear();
+        return;
+    }
+
+    const std::size_t last = value.find_last_not_of(" \t");
+    value = value.substr(first, last - first + 1);
+}
+}
+
 ParsedCommand parseCommand(const std::string& input) {
     ParsedCommand result;
     result.isBackground = false;
@@ -9,8 +22,7 @@ ParsedCommand parseCommand(const std::string& input) {
     std::string trimmed = input;
     
     // Trim leading/trailing whitespace
-    trimmed.erase(0, trimmed.find_first_not_of(" \t"));
-    trimmed.erase(trimmed.find_last_not_of(" \t") + 1);
+    trimInPlace(trimmed);
     
     if (trimmed.empty()) {
         return result;
@@ -21,8 +33,7 @@ ParsedCommand parseCommand(const std::string& input) {
         result.isBackground = true;
         trimmed.pop_back();  // Remove the '&'
         // Trim again after removing '&'
-        trimmed.erase(0, trimmed.find_first_not_of(" \t"));
-        trimmed.erase(trimmed.find_last_not_of(" \t") + 1);
+        trimInPlace(trimmed);
     }
     
     if (trimmed.empty()) {

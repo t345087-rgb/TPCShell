@@ -1,28 +1,36 @@
 ﻿
 #include <iostream>
 #include <string>
-#include <vector>
 #include "process_mgr.h"
 #include "controller.h"
-#include "parser.h"
-#include "builtins.h"
 
 int main(int argc, char* argv[]) {
     setupSignalHandler();
+    bool continuedAfterBatch = false;
 
     // Batch mode: chạy script khi gọi TPCShell.exe <file>
     // Ví dụ: TPCShell.exe test.bat
     if (argc >= 2) {
         executeBatchFile(argv[1]);
-        return 0;
+        if (!hasManagedBackgroundProcesses()) {
+            return 0;
+        }
+
+        continuedAfterBatch = true;
     }
 
     std::string input;
     
-    std::cout << "======================================\n";
-    std::cout << "  Welcome to TPCShell (v1.0)          \n";
-    std::cout << "======================================\n";
-    std::cout << "Type 'help' for available commands.\n\n";
+    if (continuedAfterBatch) {
+        std::cout << "[TPCShell] Batch completed with managed background "
+                  << "processes still running.\n";
+        std::cout << "Type 'list' to inspect them or 'help' for commands.\n\n";
+    } else {
+        std::cout << "======================================\n";
+        std::cout << "  Welcome to TPCShell (v1.0)          \n";
+        std::cout << "======================================\n";
+        std::cout << "Type 'help' for available commands.\n\n";
+    }
 
     while (true) {
         std::cout << "TPCShell> ";
@@ -46,36 +54,10 @@ int main(int argc, char* argv[]) {
             continue;
         }
         
-        // Parse command
-        ParsedCommand parsed = parseCommand(trimmed);
-        
-        if (parsed.command.empty()) {
-            continue;
+        if (executeShellLine(trimmed) == CommandResult::Exit) {
+            std::cout << "Goodbye!\n";
+            break;
         }
-        
-        // Check for built-in commands
-        if (isBuiltinCommand(parsed.command)) {
-            if (parsed.command == "exit") {
-                std::cout << "Goodbye!\n";
-                break;
-            }
-
-            executeBuiltin(parsed);
-            continue;
-        }
-        
-        // External command: prepare argv for executeCommand
-        std::vector<char*> commandArgv;
-        commandArgv.push_back(const_cast<char*>(parsed.command.c_str()));
-
-        for (const auto& arg : parsed.args) {
-            commandArgv.push_back(const_cast<char*>(arg.c_str()));
-        }
-
-        commandArgv.push_back(nullptr);
-        
-        // Execute external command
-        executeCommand(commandArgv[0], commandArgv.data(), parsed.isBackground);
     }
 
     return 0;
