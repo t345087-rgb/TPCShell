@@ -19,7 +19,6 @@ void clearForegroundProcess();
 void beginBatchExecution();
 void endBatchExecution();
 bool isBatchCancellationRequested();
-void registerBatchProcess(DWORD pid);
 
 // Các hàm quản lý danh sách do CHÍNH phụ trách
 void addBackgroundProcess(DWORD pid, HANDLE hProcess, const char* cmdName);
