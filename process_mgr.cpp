@@ -123,26 +123,38 @@ void executeCommand(const char* cmdName, char* argv[], bool isBackground) {
     char* lpCommandLine = new char[fullCommandLine.size() + 1];
     strcpy_s(lpCommandLine, fullCommandLine.size() + 1, fullCommandLine.c_str());
 
+    const DWORD creationFlags = isBackground ? CREATE_NEW_PROCESS_GROUP : 0;
+
+    if (isBackground) {
+        SetConsoleCtrlHandler(NULL, TRUE);
+    }
+
     // Gọi Windows API để tạo tiến trình con
-    if (!CreateProcessA(
+    const BOOL processCreated = CreateProcessA(
         NULL,               // Ứng dụng thực thi trực tiếp từ CommandLine
         lpCommandLine,      // Toàn bộ dòng lệnh (bao gồm cả tham số)
         NULL,               // Thuộc tính bảo mật tiến trình
         NULL,               // Thuộc tính bảo mật luồng
         FALSE,              // Không kế thừa handle
-        0,                  // Cờ tạo tiến trình (mặc định)
+        creationFlags,      // Background tách process group để tránh Ctrl+C foreground
         NULL,               // Sử dụng môi trường của cha
         NULL,               // Sử dụng thư mục hiện hành của cha
         &si,                // Thông tin cấu hình cửa sổ ban đầu
         &pi                 // Nhận thông tin handle/PID trả về từ OS
-    )) {
+    );
+
+    const DWORD createError = processCreated ? ERROR_SUCCESS : GetLastError();
+
+    if (isBackground) {
+        SetConsoleCtrlHandler(NULL, FALSE);
+    }
+
+    if (!processCreated) {
         std::cout << "[TPCShell] Failed to execute command. Windows error: "
-                  << GetLastError() << std::endl;
+                  << createError << std::endl;
         delete[] lpCommandLine;
         return;
     }
-
-    registerBatchProcess(pi.dwProcessId);
 
     // XỬ LÝ CHẾ ĐỘ FOREGROUND / BACKGROUND THEO ĐỀ BÀI
     if (!isBackground) {

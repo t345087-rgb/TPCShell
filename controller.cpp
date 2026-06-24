@@ -15,7 +15,6 @@ SRWLOCK batchLock = SRWLOCK_INIT;
 bool batchActive = false;
 bool batchCancellationRequested = false;
 int batchDepth = 0;
-std::vector<DWORD> batchProcessIds;
 
 std::vector<DWORD> findDescendantProcesses(DWORD rootPid) {
     std::vector<DWORD> descendants;
@@ -95,29 +94,14 @@ void terminateProcessTree(DWORD rootPid, HANDLE rootHandle, UINT exitCode) {
     terminatePid(rootPid, exitCode);
 }
 
-void removeManagedProcessByPid(DWORD pid) {
-    for (auto process = backgroundProcesses.begin();
-         process != backgroundProcesses.end(); ++process) {
-        if (process->pid == pid) {
-            CloseHandle(process->hProcess);
-            backgroundProcesses.erase(process);
-            return;
-        }
-    }
-}
-
 BOOL WINAPI consoleCtrlHandler(DWORD ctrlType) {
     if (ctrlType != CTRL_C_EVENT) {
         return FALSE;
     }
 
-    bool shouldCancelBatch = false;
-    std::vector<DWORD> batchPids;
     AcquireSRWLockExclusive(&batchLock);
     if (batchActive) {
         batchCancellationRequested = true;
-        shouldCancelBatch = true;
-        batchPids = batchProcessIds;
     }
     ReleaseSRWLockExclusive(&batchLock);
 
@@ -129,20 +113,6 @@ BOOL WINAPI consoleCtrlHandler(DWORD ctrlType) {
         terminateProcessTree(activeForegroundPid, activeForegroundHandle, 130);
     }
     ReleaseSRWLockShared(&foregroundLock);
-
-    if (shouldCancelBatch) {
-        AcquireSRWLockExclusive(&backgroundLock);
-        for (DWORD pid : batchPids) {
-            for (const BackgroundProcess& process : backgroundProcesses) {
-                if (process.pid == pid) {
-                    terminateProcessTree(process.pid, process.hProcess, 130);
-                    break;
-                }
-            }
-            removeManagedProcessByPid(pid);
-        }
-        ReleaseSRWLockExclusive(&backgroundLock);
-    }
 
     return TRUE;
 }
@@ -698,7 +668,6 @@ void beginBatchExecution() {
     if (batchDepth == 0) {
         batchActive = true;
         batchCancellationRequested = false;
-        batchProcessIds.clear();
     }
     ++batchDepth;
     ReleaseSRWLockExclusive(&batchLock);
@@ -711,7 +680,6 @@ void endBatchExecution() {
     }
     if (batchDepth == 0) {
         batchActive = false;
-        batchProcessIds.clear();
     }
     ReleaseSRWLockExclusive(&batchLock);
 }
@@ -721,14 +689,6 @@ bool isBatchCancellationRequested() {
     const bool requested = batchCancellationRequested;
     ReleaseSRWLockShared(&batchLock);
     return requested;
-}
-
-void registerBatchProcess(DWORD pid) {
-    AcquireSRWLockExclusive(&batchLock);
-    if (batchActive) {
-        batchProcessIds.push_back(pid);
-    }
-    ReleaseSRWLockExclusive(&batchLock);
 }
 
 void setupSignalHandler() {
